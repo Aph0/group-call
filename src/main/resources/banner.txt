@@ -1,0 +1,2 @@
+	Starting ViRum server
+                    version ${project.version}
