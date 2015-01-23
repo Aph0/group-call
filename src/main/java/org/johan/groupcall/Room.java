@@ -3,8 +3,10 @@ package org.johan.groupcall;
 
 import java.io.Closeable;
 import java.io.IOException;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Date;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -28,6 +30,7 @@ public class Room implements Closeable {
 	private final ConcurrentMap<String, UserSession> participants = new ConcurrentHashMap<>();
 	private final MediaPipeline pipeline;
 	private final String name;
+	private final SimpleDateFormat sdf = new SimpleDateFormat("HH:mm:ss");
 
 	/**
 	 * @return the name
@@ -221,6 +224,28 @@ public class Room implements Closeable {
 //				if (!user.isVisible()) {
 //					participant.cancelVideoFrom(user);					
 //				}
+			} catch (final IOException e) {
+				log.warn(e.getLocalizedMessage());
+				e.printStackTrace();
+			}
+		}
+		
+	}
+
+	public void distributeChatMessage(UserSession chatMsgSender, String text) {
+		Date now = new Date();
+
+		String nowStr = sdf.format(now);
+		
+		for (final UserSession participant : participants.values()) {
+			final JsonObject chatMessage = new JsonObject();
+			chatMessage.addProperty("id", "chatMessageReceived");
+			chatMessage.addProperty("sender", chatMsgSender.getName());
+			chatMessage.addProperty("time", nowStr);
+			chatMessage.addProperty("text", text);
+			chatMessage.addProperty("isYou", participant.equals(chatMsgSender));
+			try {
+				participant.sendMessage(chatMessage);
 			} catch (final IOException e) {
 				log.warn(e.getLocalizedMessage());
 				e.printStackTrace();

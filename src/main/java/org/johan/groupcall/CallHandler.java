@@ -58,9 +58,20 @@ public class CallHandler extends TextWebSocketHandler {
 		case "changeVisibility":
 			changeVisibility(user);
 			break;
+		case "chat":
+			final String text = jsonMessage.get("text").getAsString();
+			final String room = jsonMessage.get("room").getAsString();
+			sendChatMessage(user, text, room);
+			break;
 		default:
 			break;
 		}
+	}
+
+
+	private void sendChatMessage(UserSession chatMsgSender, String text, String roomStr) {
+		Room room = roomManager.getRoom(roomStr);
+		room.distributeChatMessage(chatMsgSender, text);
 	}
 
 

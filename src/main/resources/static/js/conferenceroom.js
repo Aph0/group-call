@@ -1,21 +1,8 @@
-/*
- * (C) Copyright 2014 Kurento (http://kurento.org/)
- *
- * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the GNU Lesser General Public License
- * (LGPL) version 2.1 which accompanies this distribution, and is available at
- * http://www.gnu.org/licenses/lgpl-2.1.html
- *
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
- * Lesser General Public License for more details.
- *
- */
 
 var ws = new WebSocket('ws://' + location.host + '/groupcall');
 var participants = {};
 var name; // The local user name... strange that it is in use..
+var messageOnOff = false; // Toggling this on off for the messages... not so important :)
 
 window.onbeforeunload = function() {
 	ws.close();
@@ -43,6 +30,9 @@ ws.onmessage = function(message) {
 	case 'updateVisibility':
 		updateVisibility(parsedMessage);
 		break;
+	case 'chatMessageReceived':
+		addChatMessage(parsedMessage);
+		break;
 	default:
 		console.error('Unrecognized message', parsedMessage);
 	}
@@ -52,16 +42,47 @@ function register() {
 	name = document.getElementById('name').value;
 	var room = document.getElementById('roomName').value;
 
-	document.getElementById('room-header').innerText = 'ROOM ' + room;
+	document.getElementById('room-header').innerText = 'RUM ' + room;
 	document.getElementById('join').style.display = 'none';
 	document.getElementById('room').style.display = 'block';
+	document.getElementById('chat').style.display = 'block';
+	
+
+
+	document.getElementById("write").addEventListener("keydown", function(e) {
+
+	    if (e.keyCode == 13) { // Enter
+	    	var str = $( "#write" ).val();
+	    	sendTextToOthers(str); 
+	    	$( "#write" ).val('');
+	    }
+	}, false);
+
+
 
 	var message = {
 		id : 'joinRoom',
 		name : name,
-		room : room,
+		room : room
 	}
 	sendMessage(message);
+	
+	addChatMessage({systemMessage: true, text: "Welcome to the chat! Remember to enable your camera if you want to stream video!"})
+
+}
+
+function sendTextToOthers(textStr) {
+	if (textStr == null || textStr.length <= 0) {
+		return;
+	}
+	var room = document.getElementById('roomName').value;
+	var message = {
+			id : 'chat',
+			name : name,
+			room : room,
+			text : textStr
+		}
+		sendMessage(message);
 }
 
 function onNewParticipant(request) {
@@ -71,6 +92,44 @@ function onNewParticipant(request) {
 
 function receiveVideoResponse(result) {
 	participants[result.name].rtcPeer.processSdpAnswer(result.sdpAnswer);
+}
+
+/** This can also be used internally **/
+function addChatMessage(result) {
+	var isYou = result.isYou;
+	var senderName = result.sender;
+	var text = result.text;
+	var now = result.time;
+
+	// This one is maybe not provided from the backend (only if it really is a sysmsg)
+	var systemMessage = result.systemMessage;
+	
+	if (senderName != undefined && senderName != null) {
+		senderName = '<b>|' + senderName + '| </b> '
+	} else {
+		senderName = '';
+	}
+	
+	$chatContent = $( "#chatcontent" );
+	var $messageLine = $("<div class='usermessage'> " + ((now == undefined || now == null) ? '' : ("[" + now + "]")) + senderName + text + "</div>");
+	
+	$chatContent.prepend($messageLine);
+	
+	$messageLine.addClass('usermessage');
+	if (messageOnOff) {
+		$messageLine.addClass('even');		
+	} else {
+		$messageLine.addClass('uneven');				
+	}
+	if (isYou) {
+		$messageLine.addClass('you');
+	}
+	
+	if (systemMessage) {
+		$messageLine.addClass('systemmessage');
+	}
+	
+	messageOnOff = !messageOnOff;
 }
 
 function updateVisibility(result) {
