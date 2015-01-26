@@ -27,6 +27,12 @@ public class CallHandler extends TextWebSocketHandler {
 	@Autowired
 	private UserRegistry registry;
 
+	/* ****************************************************************************************
+	 * FIXME!  In a REALWORLD APP, We have to change name-id to something else, because one can rejoin so fast, 
+	 * that the server is still processing the name-to-session registry and get strange results!
+	 * ****************************************************************************************
+	 */
+	
 	@Override
 	public void handleTextMessage(WebSocketSession session, TextMessage message)
 			throws Exception {
@@ -71,7 +77,11 @@ public class CallHandler extends TextWebSocketHandler {
 
 	private void sendChatMessage(UserSession chatMsgSender, String text, String roomStr) {
 		Room room = roomManager.getRoom(roomStr);
-		room.distributeChatMessage(chatMsgSender, text);
+		if (text != null && text.equals("testdisable")) {
+			chatMsgSender.getOutgoingWebRtcPeer().getMediaSinks().get(0).release();
+		} else {
+			room.distributeChatMessage(chatMsgSender, text);			
+		}
 	}
 
 

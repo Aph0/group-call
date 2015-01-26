@@ -256,6 +256,9 @@ a.hovertext:hover:after, a.hovertext:focus:after {
 #chatcontent .usermessage.even {
 	background-color: #444;
 }
+#chatcontent .systemmessage {
+	color: yellow;
+}
 
 #chatcontent  .usermessage.you {
 	color: red;

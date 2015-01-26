@@ -105,6 +105,12 @@ public class Room implements Closeable {
 	}
 
 	private void removeParticipant(String name) throws IOException {
+		
+		if (!participants.containsKey(name)) {
+			log.warn("ROOM {}: User {} already removed. No need to remove twice. Returning", this.name, name);
+			return;
+		}
+		
 		UserSession removedUser = participants.remove(name);
 		
 		// If admin quits, we have to promote someone else. This is a TODO!
@@ -125,8 +131,15 @@ public class Room implements Closeable {
 				participant.cancelVideoFrom(name);
 				participant.sendMessage(participantLeftJson);
 			} catch (final IOException e) {
-				unnotifiedParticipants.add(participant.getName());
+				unnotifiedParticipants.add(participant.getName()); 
 			}
+		}
+		
+		// Also sending message to the user itself so that it can return to the lobby
+		try {
+			participantLeftJson.addProperty("isyou", true);
+			removedUser.sendMessage(participantLeftJson);			
+		}catch (final IOException e) {
 		}
 
 		if (!unnotifiedParticipants.isEmpty()) {

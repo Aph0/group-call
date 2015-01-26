@@ -1,6 +1,6 @@
 
-var ws = new WebSocket('ws://' + location.host + '/groupcall');
-var participants = {};
+var ws = null;
+var participants;
 var name; // The local user name... strange that it is in use..
 var messageOnOff = false; // Toggling this on off for the messages... not so important :)
 
@@ -8,37 +8,47 @@ window.onbeforeunload = function() {
 	ws.close();
 };
 
-ws.onmessage = function(message) {
-	var parsedMessage = JSON.parse(message.data);
-	console.info('Received message: ' + message.data);
-
-	switch (parsedMessage.id) {
-	// This is what the new joined user gets (but not the others)
-	case 'existingParticipants':
-		onExistingParticipants(parsedMessage);
-		break;
-		// This is what the existing participants get (when the new joins), but not the joiner
-	case 'newParticipantArrived':
-		onNewParticipant(parsedMessage);
-		break;
-	case 'participantLeft':
-		onParticipantLeft(parsedMessage);
-		break;
-	case 'receiveVideoAnswer':
-		receiveVideoResponse(parsedMessage);
-		break;
-	case 'updateVisibility':
-		updateVisibility(parsedMessage);
-		break;
-	case 'chatMessageReceived':
-		addChatMessage(parsedMessage);
-		break;
-	default:
-		console.error('Unrecognized message', parsedMessage);
+registerWebSocket = function(ws) {
+	
+	ws.onmessage = function(message) {
+		var parsedMessage = JSON.parse(message.data);
+		console.info('Received message: ' + message.data);
+		
+		switch (parsedMessage.id) {
+		// This is what the new joined user gets (but not the others)
+		case 'existingParticipants':
+			onExistingParticipants(parsedMessage);
+			break;
+			// This is what the existing participants get (when the new joins), but not the joiner
+		case 'newParticipantArrived':
+			onNewParticipant(parsedMessage);
+			break;
+		case 'participantLeft':
+			onParticipantLeft(parsedMessage);
+			break;
+		case 'receiveVideoAnswer':
+			receiveVideoResponse(parsedMessage);
+			break;
+		case 'updateVisibility':
+			updateVisibility(parsedMessage);
+			break;
+		case 'chatMessageReceived':
+			addChatMessage(parsedMessage);
+			break;
+		default:
+			console.error('Unrecognized message', parsedMessage);
+		}
 	}
 }
 
+
 function register() {
+	//if (ws == null || ws.readyState > 2) {
+		participants = {};
+		ws = new WebSocket('ws://' + location.host + '/groupcall');
+		registerWebSocket(ws);
+	//}
+
 	name = document.getElementById('name').value;
 	var room = document.getElementById('roomName').value;
 
@@ -60,13 +70,16 @@ function register() {
 
 
 
-	var message = {
-		id : 'joinRoom',
-		name : name,
-		room : room
+	ws.onopen = function(message) {
+		var firstMsg = {
+				id : 'joinRoom',
+				name : name,
+				room : room
+		}
+		sendMessage(firstMsg);		
 	}
-	sendMessage(message);
 	
+	// Adds chat message locally
 	addChatMessage({systemMessage: true, text: "Welcome to the chat! Remember to enable your camera if you want to stream video!"})
 
 }
@@ -105,7 +118,7 @@ function addChatMessage(result) {
 	var systemMessage = result.systemMessage;
 	
 	if (senderName != undefined && senderName != null) {
-		senderName = '<b>|' + senderName + '| </b> '
+		senderName = '<b>' + senderName + ': </b> '
 	} else {
 		senderName = '';
 	}
@@ -165,6 +178,10 @@ function callResponse(message) {
 }
 
 function onExistingParticipants(msg) {
+	
+	var room = document.getElementById('roomName').value;
+	addChatMessage({systemMessage: true, text: "*** You joined room: " + room + " ***"})
+	
 	var constraints = {
 		audio : true,
 		video : {
@@ -213,20 +230,14 @@ function stopBroadCastingLocalVideo(me) {
 	me.rtcPeer.stream.stop();
 }
 
+// NOTE! This only tells the user to leave (locally). Wait for the signal from the server
+// and THEN the WebSocket connection will be closed.
 function leaveRoom() {
 	console.log('*** leaveRoom() called ******');
 	sendMessage({
 		id : 'leaveRoom'
 	});
 
-	for ( var key in participants) {
-		participants[key].dispose();
-	}
-
-	document.getElementById('join').style.display = 'block';
-	document.getElementById('room').style.display = 'none';
-
-	ws.close();
 }
 
 function receiveVideoFromExistingUser(participant) {
@@ -253,14 +264,39 @@ function receiveVideoAndCreateUser(senderNameAndData) {
 }
 
 function onParticipantLeft(request) {
-	console.log('Participant ' + request.name + ' left');
-	var participant = participants[request.name];
-	participant.dispose();
-	delete participants[request.name];
+	
+	// IF it is YOU leaving
+	if (request.isyou) {
+		console.log('You left');
+		
+		for ( var key in participants) {
+			participants[key].dispose();
+		}
+
+		document.getElementById('join').style.display = 'block';
+		document.getElementById('room').style.display = 'none';
+		document.getElementById('chat').style.display = 'none';
+
+		ws.close();
+		
+		// SOMEONE ELSE leaving
+	} else {
+		console.log('Participant ' + request.name + ' left');
+		var participant = participants[request.name];
+		participant.dispose();
+		delete participants[request.name];
+		addChatMessage({systemMessage: true, text: "*** " + request.name + " has left this room ***"})
+
+		
+	}
 }
 
 function sendMessage(message) {
 	var jsonMessage = JSON.stringify(message);
-	console.log('Senging message: ' + jsonMessage);
+	console.log('Sending message: ' + jsonMessage);
+	if (ws.readyState > 2) {
+		console.log('WARNING!!! Could NOT send message. WebSockets seems to be closed. Leaving!');
+		onParticipantLeft({isyou:"true"});
+	}
 	ws.send(jsonMessage);
 }

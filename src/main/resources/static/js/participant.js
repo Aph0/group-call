@@ -103,7 +103,9 @@ function Participant(name, isAdmin, isVisible, isYou) {
 
 	this.dispose = function() {
 		console.log('Disposing participant ' + this.name);
-		this.rtcPeer.dispose();
+		if (this.rtcPeer != undefined && this.rtcPeer != null) {
+			this.rtcPeer.dispose();			
+		}
 		container.parentNode.removeChild(container);
 	};
 	

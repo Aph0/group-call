@@ -212,7 +212,11 @@ public class UserSession implements Closeable {
 
 	public void sendMessage(JsonObject message) throws IOException {
 		log.debug("USER {}: Sending message {}", name, message);
-		session.sendMessage(new TextMessage(message.toString()));
+		if (session.isOpen()) {
+			session.sendMessage(new TextMessage(message.toString()));			
+		} else {
+			log.debug("USER {}: FAIL, TRYING TO SEND MESSAGE ON CLOSED SESSION!", name, message);
+		}
 	}
 	
 
