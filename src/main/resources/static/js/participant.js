@@ -16,13 +16,13 @@ function Participant(name, isAdmin, isVisible, isYou) {
 	this.isAdmin = isAdmin;
 	this.isYou = isYou;
 	this.isVisible = isVisible;
+	this.rtcPeer = null;
 	var container = document.createElement('div');
 	container.className = isPresentMainParticipant() ? PARTICIPANT_CLASS : PARTICIPANT_MAIN_CLASS;
 	container.id = name;
 	var span = document.createElement('span');
 	this.$infoSpan =  $('<span />');
 	var video = document.createElement('video');
-	var rtcPeer;
 	
 	var self = this;
 
@@ -36,7 +36,7 @@ function Participant(name, isAdmin, isVisible, isYou) {
 
 	video.id = 'video-' + name;
 	video.autoplay = true;
-	video.controls = false;
+	video.controls = true;
 
 
 	this.getElement = function() {
@@ -99,7 +99,7 @@ function Participant(name, isAdmin, isVisible, isYou) {
 		sendMessage(msg);
 	}
 
-	Object.defineProperty(this, 'rtcPeer', { writable: true});
+	//Object.defineProperty(this, 'rtcPeer', { writable: true});
 
 	this.dispose = function() {
 		console.log('Disposing participant ' + this.name);
@@ -108,6 +108,13 @@ function Participant(name, isAdmin, isVisible, isYou) {
 		}
 		container.parentNode.removeChild(container);
 	};
+	
+	this.stopBroadcasting = function() {
+		// this.rtcPeer.stream.stop();
+		this.rtcPeer.dispose();
+		this.rtcPeer = null;
+
+	}
 	
 	this.updateInfoSpanText();
 }

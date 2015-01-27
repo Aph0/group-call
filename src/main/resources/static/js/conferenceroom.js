@@ -3,6 +3,7 @@ var ws = null;
 var participants;
 var name; // The local user name... strange that it is in use..
 var messageOnOff = false; // Toggling this on off for the messages... not so important :)
+var hasAudio = false;
 
 window.onbeforeunload = function() {
 	ws.close();
@@ -51,6 +52,7 @@ function register() {
 
 	name = document.getElementById('name').value;
 	var room = document.getElementById('roomName').value;
+	hasAudio = $( "#enableaudio" ).is(":checked");
 
 	document.getElementById('room-header').innerText = 'RUM ' + room;
 	document.getElementById('join').style.display = 'none';
@@ -151,7 +153,7 @@ function updateVisibility(result) {
 	
 	// If YOU updated visibility
 	if (participants[result.user].isYou) {
-		console.info('User (You)' + result.user + ' Updated visibility to ' + result.visibility);
+		console.info('User (You) ' + result.user + ' Updated visibility to ' + result.visibility);
 		if (participants[result.user].isVisible) {
 			startBroadCastingLocalVideo(participants[result.user]);
 		} else {
@@ -159,23 +161,18 @@ function updateVisibility(result) {
 		}
 	// If SOMEONE ELSE updated visibility
 	} else {
-		console.info('User (Someone else)' + result.user + ' Updated visibility to ' + result.visibility);
-
+		console.info('User (Someone else) ' + result.user + ' Updated visibility to ' + result.visibility);
 		// Since it is someone else that went visible/not visible, we may want to receive his video stream
-		receiveVideoFromExistingUser(participants[result.user]);
+		if (participants[result.user].isVisible) {
+			receiveVideoFromExistingUser(participants[result.user]);			
+		} else {
+			discardVideoFromExistingUser(participants[result.user]);						
+		}
 
 	}
 	
 }
 
-function callResponse(message) {
-	if (message.response != 'accepted') {
-		console.info('Call not accepted by peer. Closing call');
-		stop();
-	} else {
-		webRtcPeer.processSdpAnswer(message.sdpAnswer);
-	}
-}
 
 function onExistingParticipants(msg) {
 	
@@ -183,7 +180,7 @@ function onExistingParticipants(msg) {
 	addChatMessage({systemMessage: true, text: "*** You joined room: " + room + " ***"})
 	
 	var constraints = {
-		audio : true,
+		audio : hasAudio,
 		video : {
 			mandatory : {
 				maxWidth : 80,
@@ -209,7 +206,7 @@ function onExistingParticipants(msg) {
 function startBroadCastingLocalVideo(me) {
 	var localVideo = me.getVideoElement();
 	var constraints = {
-			audio : true,
+			audio : hasAudio,
 			video : {
 				mandatory : {
 					maxWidth : 80,
@@ -226,8 +223,8 @@ function startBroadCastingLocalVideo(me) {
 
 function stopBroadCastingLocalVideo(me) {
 	//me.rtcPeer.dispose();
-	console.log(me.rtcPeer.stream.getVideoTracks().length);
-	me.rtcPeer.stream.stop();
+	//console.log(me.rtcPeer.stream.getVideoTracks().length);
+	me.stopBroadcasting();
 }
 
 // NOTE! This only tells the user to leave (locally). Wait for the signal from the server
@@ -240,17 +237,18 @@ function leaveRoom() {
 
 }
 
-function receiveVideoFromExistingUser(participant) {
-	if (participant.isVisible) {
-		console.log(participant.name + ' is visible and therefore offering YOU to receive HIS remote video');
-		var remoteVideo = participant.getVideoElement();
-		participant.rtcPeer = kurentoUtils.WebRtcPeer.startRecvOnly(remoteVideo,
-				participant.offerToReceiveVideo.bind(participant));
-		
-	} else {
-		console.log(participant.name + ' is not visible, which means you will not be offered to see HIS remote video');
+function discardVideoFromExistingUser(participant) {
+	console.log(participant.name + ' is not visible, which means you will not be offered to see HIS remote video');
+	participant.stopBroadcasting();
+}
 
-	}
+function receiveVideoFromExistingUser(participant) {
+
+	console.log(participant.name + ' is visible and therefore offering YOU to receive HIS remote video');
+	var remoteVideo = participant.getVideoElement();
+	participant.rtcPeer = kurentoUtils.WebRtcPeer.startRecvOnly(remoteVideo,
+			participant.offerToReceiveVideo.bind(participant));
+	
 }
 
 // Here, it is ME receiving videos from the sender(s)
@@ -260,7 +258,9 @@ function receiveVideoAndCreateUser(senderNameAndData) {
 	var isVisible = senderNameAndData.isVisible;
 	var participant = new Participant(senderName, isAdmin, isVisible, false);
 	participants[senderName] = participant;
-	receiveVideoFromExistingUser(participant);
+	if (participant.isVisible) {
+		receiveVideoFromExistingUser(participant);		
+	}
 }
 
 function onParticipantLeft(request) {
