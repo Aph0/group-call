@@ -179,17 +179,6 @@ function onExistingParticipants(msg) {
 	var room = document.getElementById('roomName').value;
 	addChatMessage({systemMessage: true, text: "*** You joined room: " + room + " ***"})
 	
-	var constraints = {
-		audio : hasAudio,
-		video : {
-			mandatory : {
-				maxWidth : 80,
-				maxHeight: 80,
-				maxFrameRate : 8,
-				minFrameRate : 8
-			}
-		}
-	};
 	console.log(name + " (you) registered in room " + room);
 	var me = new Participant(name, msg.isNewUserAdmin, msg.isNewUserVisible, true);
 	participants[name] = me;

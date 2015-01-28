@@ -25,27 +25,29 @@ public class UserSession implements Closeable {
 	private final String name;
 	private final WebSocketSession session;
 
-	private final MediaPipeline pipeline;
+	private MediaPipeline pipeline;
 
 	private final String roomName;
-	private final WebRtcEndpoint outgoingMedia;
+	private WebRtcEndpoint outgoingMedia;
 	private final ConcurrentMap<String, WebRtcEndpoint> incomingMedia = new ConcurrentHashMap<>();
 
 	private boolean isVisible = false;
 	private boolean isAdmin = false;
 
-	public UserSession(String name, String roomName, WebSocketSession session,
-			MediaPipeline pipeline) {
-
-		this.pipeline = pipeline;
+	public UserSession(String name, String roomName, WebSocketSession session,  MediaPipeline pipeline) {
 		this.name = name;
 		this.session = session;
 		this.roomName = roomName;
-		this.outgoingMedia = new WebRtcEndpoint.Builder(pipeline).build();
+		createOrUpdateEndpoint(pipeline);
 	}
 
 	public WebRtcEndpoint getOutgoingWebRtcPeer() {
 		return outgoingMedia;
+	}
+	
+	public void createOrUpdateEndpoint(MediaPipeline pipeline) {
+		this.pipeline = pipeline;
+		this.outgoingMedia = new WebRtcEndpoint.Builder(pipeline).build();
 	}
 
 	/**
@@ -102,6 +104,7 @@ public class UserSession implements Closeable {
 	 * @return the endpoint used to receive media from a certain user
 	 */
 	private WebRtcEndpoint getEndpointForUser(UserSession sender) {
+		// TODO, Skip loopback for local videos to save streams
 		if (sender.getName().equals(name)) {
 			log.debug("PARTICIPANT {}: configuring loopback", this.name);
 			return outgoingMedia;

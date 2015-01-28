@@ -54,7 +54,8 @@ public class Room implements Closeable {
 			throws IOException {
 		log.info("ROOM {}: adding participant {}", name, userName);
 		final UserSession participant = new UserSession(userName, this.name,
-				session, this.pipeline);
+				session, pipeline);
+		participant.createOrUpdateEndpoint(pipeline);
 		if (participants.size() <= 0) {
 			// First to connect will become admin (visible)
 			participant.setAdmin(true);
@@ -226,6 +227,9 @@ public class Room implements Closeable {
 	 */
 	public void updateVisibilityFor(UserSession user) {
 		user.setVisible(!user.isVisible());
+		if (user.isVisible()) {
+			user.createOrUpdateEndpoint(pipeline);
+		}
 		final JsonObject updateVisibilityMsg = new JsonObject();
 		updateVisibilityMsg.addProperty("id", "updateVisibility");
 		updateVisibilityMsg.addProperty("user", user.getName());
@@ -233,10 +237,11 @@ public class Room implements Closeable {
 		for (final UserSession participant : participants.values()) {
 			try {
 				participant.sendMessage(updateVisibilityMsg);
+				
 // This somehow also closes the websocket... avoid until clear...
-//				if (!user.isVisible()) {
-//					participant.cancelVideoFrom(user);					
-//				}
+				if (!user.isVisible()) {
+					participant.cancelVideoFrom(user);					
+				}
 			} catch (final IOException e) {
 				log.warn(e.getLocalizedMessage());
 				e.printStackTrace();

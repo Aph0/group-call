@@ -118,5 +118,6 @@ public class CallHandler extends TextWebSocketHandler {
 	private void changeVisibility(UserSession user) {
 		final Room room = roomManager.getRoom(user.getRoomName());
 		room.updateVisibilityFor(user);
+
 	}
 }
